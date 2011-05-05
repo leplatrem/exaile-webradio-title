@@ -13,7 +13,10 @@ FREQUENCY = 5  # seconds
 _PLUGIN = None
 
 TRACK_CHANGE_CALLBACKS = (
+        'playback_buffering',
+        'playback_player_resume',
         'playback_current_changed',
+        'playback_track_start',
         'playback_player_start',
         'playback_track_end',
         'player_loaded',
@@ -47,6 +50,7 @@ class WebRadioTitlePlugin(object):
     def __init__(self, exaile):
         self.exaile = exaile
         self._stop = threading.Event()
+        self.scrapper = None
 
     def __del__(self):
         self.stop()
@@ -79,16 +83,19 @@ class WebRadioTitlePlugin(object):
 
     @common.threaded
     def start(self, scrappercls):
+        if self.scrapper and isinstance(self.scrapper, scrappercls):
+            return
         logger.info(_("Scrapping started"))        
-        scrapper = scrappercls()
+        self.scrapper = scrappercls()
         while not self.stopped:
             try:
-                d = scrapper.current()
+                d = self.scrapper.current()
                 logger.debug(_("Scrap gave %s") % d)
                 self.updatetrack(d)
                 time.sleep(FREQUENCY)
             except Exception, e:
                 logger.exception(e)
+        self.scrapper = None
         logger.info(_("Scrapping stopped"))
 
     def stop(self):
