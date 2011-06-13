@@ -1,6 +1,8 @@
+import os
 import logging
 import threading
 import time
+import random
 
 import xl
 from xl.nls import gettext as _
@@ -8,7 +10,7 @@ from xl import event, common
 
 from scrap import *
 
-FREQUENCY = 5  # seconds
+FREQUENCY = 10  # seconds
 
 _PLUGIN = None
 
@@ -49,11 +51,13 @@ class WebRadioTitlePlugin(object):
  
     def __init__(self, exaile):
         self.exaile = exaile
-        self._stop = threading.Event()
         self.scrapper = None
+        self._stop = None
+        self._previous = {}
+        self._tmptag = False
 
     def __del__(self):
-        self.stop()
+        self.stop()        
 
     def change(self,  *args, **kwargs):
         if self.exaile is None:
@@ -67,7 +71,10 @@ class WebRadioTitlePlugin(object):
             logger.debug(_("Player stopped, stop fetching titles"))
             self.stop()
             return
-        
+
+        if self._tmptag:  # Ignore event while tags set in updatetrack()
+            return
+
         url = track.get_loc_for_io()
         
         # Look for a web scrapper that knows this url
@@ -76,27 +83,36 @@ class WebRadioTitlePlugin(object):
             if cls.match(url):
                 matchcls = cls
         if matchcls:
-            self.start(matchcls)
+            self.run(matchcls)
         else:
             logger.debug(_("Current track does not match any webradio scrapper"))
             self.stop()
 
     @common.threaded
-    def start(self, scrappercls):
+    def run(self, scrappercls):
         if self.scrapper and isinstance(self.scrapper, scrappercls):
+            # Already running with this scrapper
             return
-        logger.info(_("Scrapping started"))        
+        logger.info(_("Scrapping started"))
+        self.start()
         self.scrapper = scrappercls()
         while not self.stopped:
             try:
-                d = self.scrapper.current()
-                logger.debug(_("Scrap gave %s") % d)
-                self.updatetrack(d)
+                d = self.scrapper.current()                
+                # Update track if some field changed
+                if not self._previous or \
+                   any(d.get(k) != self._previous.get(k) for k in d):
+                    logger.debug(_("New track scrapped %s") % d)
+                    self.updatetrack(d)
+                    self._previous = d
                 time.sleep(FREQUENCY)
             except Exception, e:
                 logger.exception(e)
         self.scrapper = None
         logger.info(_("Scrapping stopped"))
+
+    def start(self):
+        self._stop = threading.Event()
 
     def stop(self):
         self._stop.set()
@@ -114,3 +130,12 @@ class WebRadioTitlePlugin(object):
             if value:
                 track.set_tag_raw(tag, value)
 
+        logger.debug(_("Simulate track change"))
+        track.set_tag_raw('__length', random.randint(180, 240))  # fake length
+        loc = track.get_tag_raw('__loc')
+        self._tmptag = True
+        fakepath = os.path.abspath(os.urandom(random.randint(16, 32)))
+        track.set_tag_raw('__loc', fakepath)  # fake is_local() for audioscrobbler plugin
+        event.log_event('playback_track_start', self.exaile.player, track, async=False)
+        track.set_tag_raw('__loc', loc)
+        self._tmptag = False
