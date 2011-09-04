@@ -8,7 +8,7 @@ import xl
 from xl.nls import gettext as _
 from xl import event, common
 
-from scrap import *
+from scrap import FIPScrapper
 
 FREQUENCY = 10  # seconds
 
