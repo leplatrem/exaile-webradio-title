@@ -57,7 +57,7 @@ class WebRadioTitlePlugin(object):
         self._tmptag = False
 
     def __del__(self):
-        self.stop()        
+        self.stop()
 
     def change(self,  *args, **kwargs):
         if self.exaile is None:
@@ -115,7 +115,8 @@ class WebRadioTitlePlugin(object):
         self._stop = threading.Event()
 
     def stop(self):
-        self._stop.set()
+        if self._stop:
+            self._stop.set()
 
     @property
     def stopped(self):
