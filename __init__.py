@@ -135,6 +135,9 @@ class WebRadioTitlePlugin(object):
             if value:
                 track.set_tag_raw(tag, value)
 
+        if not data:
+            return
+
         logger.debug(_("Simulate track change"))
         track.set_tag_raw('__length', random.randint(180, 240))  # fake length
         loc = track.get_tag_raw('__loc')
