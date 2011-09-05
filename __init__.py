@@ -4,7 +4,7 @@ import threading
 import time
 import random
 
-import xl
+from xl import event, player
 from xl.nls import gettext as _
 from xl import event, common
 
@@ -43,14 +43,14 @@ def _enable(eventname, exaile, nothing):
         _PLUGIN = WebRadioTitlePlugin(exaile)
     _PLUGIN.exaile = exaile
     for signal in TRACK_CHANGE_CALLBACKS:
-        xl.event.add_callback(_PLUGIN.change, signal)
+        event.add_callback(_PLUGIN.change, signal)
 
 
 
 class WebRadioTitlePlugin(object):
  
     def __init__(self, exaile):
-        self.exaile = exaile
+        self.player = player.PLAYER
         self.scrapper = None
         self._stop = None
         self._previous = {}
@@ -60,13 +60,7 @@ class WebRadioTitlePlugin(object):
         self.stop()
 
     def change(self,  *args, **kwargs):
-        if self.exaile is None:
-            return
-        if not hasattr(self.exaile, 'player'):
-            logger.debug(_("Player not loaded, ignoring change call"))
-            return
-
-        track = self.exaile.player.current
+        track = self.player.current
         if not track:
             logger.debug(_("Player stopped, stop fetching titles"))
             self.stop()
@@ -127,23 +121,10 @@ class WebRadioTitlePlugin(object):
         return self._stop.isSet()
 
     def updatetrack(self, data):
-        track = self.exaile.player.current
+        track = self.player.current
         if not track:
             return
         for tag in ['artist', 'title', 'album', 'author']:
             value = data.get(tag)
             if value:
                 track.set_tag_raw(tag, value)
-
-        if not data:
-            return
-
-        logger.debug(_("Simulate track change"))
-        track.set_tag_raw('__length', random.randint(180, 240))  # fake length
-        loc = track.get_tag_raw('__loc')
-        self._tmptag = True
-        fakepath = os.path.abspath(os.urandom(random.randint(16, 32)))
-        track.set_tag_raw('__loc', fakepath)  # fake is_local() for audioscrobbler plugin
-        event.log_event('playback_track_start', self.exaile.player, track, async=False)
-        track.set_tag_raw('__loc', loc)
-        self._tmptag = False
