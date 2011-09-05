@@ -88,6 +88,10 @@ class WebRadioTitlePlugin(object):
             logger.debug(_("Current track does not match any webradio scrapper"))
             self.stop()
 
+    def haschanged(self, tags):
+        return self._previous is None or \
+               any(d.get(k) != self._previous.get(k) for k in tags)
+
     @common.threaded
     def run(self, scrappercls):
         if self.scrapper and isinstance(self.scrapper, scrappercls):
@@ -100,8 +104,7 @@ class WebRadioTitlePlugin(object):
             try:
                 d = self.scrapper.current()                
                 # Update track if some field changed
-                if not self._previous or \
-                   any(d.get(k) != self._previous.get(k) for k in d):
+                if self.haschanged(d):
                     logger.debug(_("New track scrapped %s") % d)
                     self.updatetrack(d)
                     self._previous = d
@@ -109,6 +112,7 @@ class WebRadioTitlePlugin(object):
             except Exception, e:
                 logger.exception(e)
         self.scrapper = None
+        self._previous = None
         logger.info(_("Scrapping stopped"))
 
     def start(self):
