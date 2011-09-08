@@ -90,7 +90,7 @@ class WebRadioTitlePlugin(object):
 
     def haschanged(self, tags):
         return self._previous is None or \
-               any(d.get(k) != self._previous.get(k) for k in tags)
+               any(tags.get(k) != self._previous.get(k) for k in tags)
 
     @common.threaded
     def run(self, scrappercls):
